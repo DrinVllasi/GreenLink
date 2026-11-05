@@ -17,3 +17,4 @@ export const getRoutes = () => request("/routes");
 export const getDepartures = (limit = 10) => request(`/departures?limit=${limit}`);
 export const getParcel = (code) => request(`/parcels/${code}`);
 export const resetDemo = () => request("/admin/reset-demo", { method: "POST" });
+export const getUsers = () => request("/users");

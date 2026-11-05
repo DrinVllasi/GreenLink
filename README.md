@@ -1,10 +1,8 @@
 # GreenLink demo - setup
 
-## 1. Start PostgreSQL (pick ONE)
+## 1. Start PostgreSQL
 
-**A) Docker (easiest):** from this folder run `docker compose up -d`
-
-**B) Installed PostgreSQL:** create a database/user matching `.env.example`:
+ Installed PostgreSQL:** create a database/user matching `.env.example`:
 ```sql
 CREATE USER greenlink WITH PASSWORD 'greenlink';
 CREATE DATABASE greenlink OWNER greenlink;
@@ -30,6 +28,11 @@ To see a parcel, copy a `code` (GL-xxxxxx) from the database and use `GET /parce
 
 <!-- Starting it again another day -->
 
-<!--Open the backend folder, type cmd in the address bar, and press Enter.
+<!--
+Open the backend folder, type cmd in the address bar, and press Enter.
 Run venv\Scripts\activate.
-Run uvicorn main:app --reload. -->
+Run uvicorn main:app --reload. 
+
+Open the cmd in the frontend folder.
+Run npm run dev
+-->

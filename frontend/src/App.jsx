@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDepartures, getRoutes } from "./api";
+import { getDepartures, getRoutes, getUsers } from "./api";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -11,19 +11,52 @@ export default function App() {
   const [routes, setRoutes] = useState([]);
   const [departures, setDepartures] = useState([]);
   const [error, setError] = useState(null);
-
+  const [users, setUsers] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(
+    () => Number(localStorage.getItem("greenlink_user_id")) || null);
+  
   useEffect(() => {
-    Promise.all([getRoutes(), getDepartures(10)])
-      .then(([r, d]) => {
+    Promise.all([getRoutes(), getDepartures(10), getUsers()])
+      .then(([r, d, u]) => {
         setRoutes(r);
         setDepartures(d);
+        setUsers(u);
       })
       .catch((e) => setError(e.message));
   }, []);
 
+  const currentUser =
+  users.find((u) => u.id === currentUserId) ||
+  users.find((u) => u.role === "sender") ||
+  null;
+
+  function changeUser(e) {
+    const id = Number(e.target.value);
+    setCurrentUserId(id);
+    localStorage.setItem("greenlink_user_id", String(id));
+  }
+
   return (
     <div className="page">
       <h1>GreenLink</h1>
+      <div className="role-bar">
+        <label>
+          Demo user:{" "}
+          <select value={currentUser ? currentUser.id : ""} onChange={changeUser}>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.role})
+              </option>
+            ))}
+          </select>
+        </label>
+        {currentUser && (
+          <p>
+            Logged in as: <strong>{currentUser.name}</strong> ({currentUser.role})
+            {currentUser.business_name && ` · ${currentUser.business_name}`}
+          </p>
+        )}
+      </div>
       <p className="sub">Frontend and backend are connected if you can see data below.</p>
 
       {error && <p className="error">Could not reach the API: {error}</p>}
