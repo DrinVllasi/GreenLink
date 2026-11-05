@@ -100,8 +100,10 @@ def seed():
                         capacity_kg=random.choice([40, 60, 80]),
                         booked_kg=0,
                     ))
-        db.add_all(departures)
-        db.flush()
+                # Send departures in batches of 100: one giant INSERT (~900 rows) made Neon drop the connection
+        for i in range(0, len(departures), 100):
+            db.add_all(departures[i:i + 100])
+            db.flush()
         route_by_id = {r.id: r for r in routes}
 
         # --- ~40 past, completed parcels (so dashboards look alive) ---
