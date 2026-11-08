@@ -43,3 +43,11 @@ th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border);
   .print-area, .print-area * { visibility: visible; }
   .print-area { position: absolute; left: 0; top: 0; }
 }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: #8881; }
+.pill { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.85rem;
+  background: #8883; white-space: nowrap; }
+.status-booked, .status-dropped_off { background: #f5c54255; }
+.status-matched, .status-loaded, .status-in_transit { background: #3b82f655; }
+.status-arrived { background: #a855f755; }
+.status-collected { background: #22c55e55; }

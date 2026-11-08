@@ -13,7 +13,7 @@ function formatTime(iso) {
   });
 }
 
-export default function SenderScreen({ user, routes }) {
+export default function SenderScreen({ user, routes, onBooked }) {
   const [routeId, setRouteId] = useState("");
   const [weight, setWeight] = useState(5);
   const [contentType, setContentType] = useState(CONTENT_TYPES[0]);
@@ -66,6 +66,7 @@ export default function SenderScreen({ user, routes }) {
         content_type: contentType,
       });
         setBooked(parcel.parcel || parcel);
+        if (onBooked) onBooked();
     } catch (e) {
       setFormError(e.message);
     } finally {

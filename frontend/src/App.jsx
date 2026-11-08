@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDepartures, getRoutes, getUsers } from "./api";
 import SenderScreen from "./SenderScreen";
+import ParcelHistory from "./ParcelHistory";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -13,6 +14,7 @@ export default function App() {
   const [departures, setDepartures] = useState([]);
   const [error, setError] = useState(null);
   const [users, setUsers] = useState([]);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [currentUserId, setCurrentUserId] = useState(
     () => Number(localStorage.getItem("greenlink_user_id")) || null);
   
@@ -62,7 +64,14 @@ export default function App() {
 
       {error && <p className="error">Could not reach the API: {error}</p>}
       {currentUser && currentUser.role === "sender" && (
-        <SenderScreen user={currentUser} routes={routes} />
+        <>
+          <SenderScreen
+            user={currentUser}
+            routes={routes}
+            onBooked={() => setHistoryVersion((v) => v + 1)}
+          />
+          <ParcelHistory userId={currentUser.id} version={historyVersion} />
+        </>
       )}
 
       <h2>Routes ({routes.length})</h2>
