@@ -26,3 +26,8 @@ export const createParcel = (body) =>
 export const getParcels = (senderId) => request(`/parcels?sender_id=${senderId}`);
 export const scanParcel = (code) =>
   request(`/parcels/${encodeURIComponent(code)}/scan`, { method: "POST", body: "{}" });
+export const collectParcel = (code, pickupCode) =>
+  request(`/parcels/${encodeURIComponent(code)}/collect`, {
+    method: "POST",
+    body: JSON.stringify({ pickup_code: pickupCode }),
+  });

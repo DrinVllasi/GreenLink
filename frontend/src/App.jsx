@@ -3,6 +3,7 @@ import { getDepartures, getRoutes, getUsers } from "./api";
 import SenderScreen from "./SenderScreen";
 import ParcelHistory from "./ParcelHistory";
 import ScanScreen from "./ScanScreen";
+import PickupScreen from "./PickupScreen";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -77,6 +78,8 @@ export default function App() {
       {currentUser && (currentUser.role === "driver" || currentUser.role === "agent") && (
         <ScanScreen user={currentUser} />
       )}
+      {currentUser && currentUser.role === "agent" && <PickupScreen />}
+
 
       <h2>Routes ({routes.length})</h2>
       <ul>
