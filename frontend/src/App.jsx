@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getDepartures, getRoutes, getUsers } from "./api";
 import SenderScreen from "./SenderScreen";
 import ParcelHistory from "./ParcelHistory";
+import ScanScreen from "./ScanScreen";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -72,6 +73,9 @@ export default function App() {
           />
           <ParcelHistory userId={currentUser.id} version={historyVersion} />
         </>
+      )}
+      {currentUser && (currentUser.role === "driver" || currentUser.role === "agent") && (
+        <ScanScreen user={currentUser} />
       )}
 
       <h2>Routes ({routes.length})</h2>

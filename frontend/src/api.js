@@ -24,3 +24,5 @@ export const getQuote = (body) =>
 export const createParcel = (body) =>
   request("/parcels", { method: "POST", body: JSON.stringify(body) });
 export const getParcels = (senderId) => request(`/parcels?sender_id=${senderId}`);
+export const scanParcel = (code) =>
+  request(`/parcels/${encodeURIComponent(code)}/scan`, { method: "POST", body: "{}" });

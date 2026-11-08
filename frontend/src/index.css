@@ -51,3 +51,4 @@ tr.clickable:hover { background: #8881; }
 .status-matched, .status-loaded, .status-in_transit { background: #3b82f655; }
 .status-arrived { background: #a855f755; }
 .status-collected { background: #22c55e55; }
+#reader { max-width: 320px; margin: 0.5rem 0; }
