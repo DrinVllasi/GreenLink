@@ -18,3 +18,8 @@ export const getDepartures = (limit = 10) => request(`/departures?limit=${limit}
 export const getParcel = (code) => request(`/parcels/${code}`);
 export const resetDemo = () => request("/admin/reset-demo", { method: "POST" });
 export const getUsers = () => request("/users");
+export const getQuote = (body) =>
+  request("/parcels/quote", { method: "POST", body: JSON.stringify(body) });
+
+export const createParcel = (body) =>
+  request("/parcels", { method: "POST", body: JSON.stringify(body) });

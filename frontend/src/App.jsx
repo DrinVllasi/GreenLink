@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDepartures, getRoutes, getUsers } from "./api";
+import SenderScreen from "./SenderScreen";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -60,6 +61,9 @@ export default function App() {
       <p className="sub">Frontend and backend are connected if you can see data below.</p>
 
       {error && <p className="error">Could not reach the API: {error}</p>}
+      {currentUser && currentUser.role === "sender" && (
+        <SenderScreen user={currentUser} routes={routes} />
+      )}
 
       <h2>Routes ({routes.length})</h2>
       <ul>

@@ -4,4 +4,4 @@ pydantic==2.14.2
 uvicorn[standard]==0.54.0
 sqlalchemy==2.1.8
 psycopg[binary]==3.3.8
-python-dotenv==1.2.4
+python-dotenv==1.2.4cla
