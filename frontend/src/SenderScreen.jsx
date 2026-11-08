@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getQuote, createParcel } from "./api";
+import QrLabel from "./QrLabel";
 
 const CONTENT_TYPES = [
   "documents", "spare parts", "handmade goods",
@@ -85,7 +86,9 @@ export default function SenderScreen({ user, routes }) {
         <p>Parcel code: <strong>{booked.code}</strong></p>
         <p>Pickup code for the receiver: <strong>{booked.pickup_code}</strong></p>
         <p>Price: {booked.price} EUR · Status: {booked.status}</p>
-        <p className="sub">Next: print the label and drop the parcel at the origin station box.</p>
+        <QrLabel parcel={booked} />
+        <p className="sub">Print the label, stick it on the parcel and drop it at the origin station box.</p>
+        <button onClick={() => window.print()}>Print label</button>{" "}
         <button onClick={bookAnother}>Book another parcel</button>
       </div>
     );
