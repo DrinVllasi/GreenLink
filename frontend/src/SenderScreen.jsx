@@ -24,6 +24,8 @@ export default function SenderScreen({ user, routes, onBooked }) {
   const [formError, setFormError] = useState(null);
   const [booked, setBooked] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [useCredits, setUseCredits] = useState(false);
+  const [quoteVersion, setQuoteVersion] = useState(0);
 
   // pick the first route once routes have loaded
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function SenderScreen({ user, routes, onBooked }) {
     }
     let cancelled = false;
     const timer = setTimeout(() => {
-      getQuote({ route_id: Number(routeId), weight_kg: Number(weight) })
+      getQuote({ route_id: Number(routeId), weight_kg: Number(weight), sender_id: user.id })
         .then((q) => {
           if (!cancelled) { setQuote(q); setQuoteError(null); }
         })
@@ -47,7 +49,7 @@ export default function SenderScreen({ user, routes, onBooked }) {
         });
     }, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [routeId, weight]);
+  }, [routeId, weight, user.id, quoteVersion]);
 
   async function handleBook() {
     setFormError(null);
@@ -64,9 +66,14 @@ export default function SenderScreen({ user, routes, onBooked }) {
         receiver_phone: receiverPhone.trim(),
         weight_kg: Number(weight),
         content_type: contentType,
+        use_credits: useCredits && !!quote && quote.redeemable_credits > 0,
       });
-        setBooked(parcel.parcel || parcel);
-        if (onBooked) onBooked();
+      setBooked({
+        ...(parcel.parcel || parcel),
+        credits_used: parcel.credits_used || 0,
+        discount_eur: parcel.discount_eur || 0,
+      });
+      if (onBooked) onBooked();
     } catch (e) {
       setFormError(e.message);
     } finally {
@@ -78,6 +85,8 @@ export default function SenderScreen({ user, routes, onBooked }) {
     setBooked(null);
     setReceiverName("");
     setReceiverPhone("");
+    setUseCredits(false);
+    setQuoteVersion((v) => v + 1); // re-fetch the quote so the new balance shows
   }
 
   if (booked) {
@@ -87,6 +96,9 @@ export default function SenderScreen({ user, routes, onBooked }) {
         <p>Parcel code: <strong>{booked.code}</strong></p>
         <p>Pickup code for the receiver: <strong>{booked.pickup_code}</strong></p>
         <p>Price: {booked.price} EUR · Status: {booked.status}</p>
+        {booked.credits_used > 0 && (
+          <p>Green credits used: <strong>{booked.credits_used}</strong> (-{booked.discount_eur.toFixed(2)} EUR)</p>
+        )}
         <QrLabel parcel={booked} />
         <p className="sub">Print the label, stick it on the parcel and drop it at the origin station box.</p>
         <button onClick={() => window.print()}>Print label</button>{" "}
@@ -96,6 +108,7 @@ export default function SenderScreen({ user, routes, onBooked }) {
   }
 
   const best = quote && quote.best_departure;
+  const canUse = !!quote && quote.redeemable_credits > 0;
 
   return (
     <div className="card">
@@ -134,7 +147,26 @@ export default function SenderScreen({ user, routes, onBooked }) {
         {!quote && !quoteError && <p className="sub">Enter a weight to see the price.</p>}
         {quote && (
           <>
-            <p>Price: <strong>{quote.price} EUR</strong></p>
+            <p>Price: <strong>{quote.price} EUR</strong>
+              {useCredits && canUse && (
+                <> → <strong>{quote.price_after_credits} EUR</strong> with credits</>
+              )}
+            </p>
+            {quote.credits_balance !== undefined && (
+              <p>
+                <label>
+                  <input type="checkbox" checked={useCredits && canUse} disabled={!canUse}
+                    onChange={(e) => setUseCredits(e.target.checked)} />{" "}
+                  Use my green credits
+                  {canUse
+                    ? `: ${quote.redeemable_credits} credits = -${quote.discount_eur.toFixed(2)} EUR`
+                    : " (none available)"}
+                </label>
+                <br /><span className="sub">
+                  Balance: {quote.credits_balance} credits. Credits can pay at most 25% of a parcel.
+                </span>
+              </p>
+            )}
             <p>CO2 avoided: <strong>{quote.estimated_co2_avoided_kg} kg</strong> ·
               Credits you earn after delivery: <strong>{quote.estimated_credits}</strong></p>
             {best ? (

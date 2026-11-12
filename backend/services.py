@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import models as m
-from co2 import co2_avoided, credits_for, credits_to_eur
+from co2 import co2_avoided, credits_for, credits_to_eur, max_redeemable
 from matching import rank_departures
 from pricing import price_for
 
@@ -61,6 +61,18 @@ def _route_for(db: Session, origin_id: int, destination_id: int) -> m.Route:
         raise BusinessError("Route not found", 404)
     return route
 
+def credit_balance(db: Session, user_id: int) -> int:
+    return int(db.scalar(
+        select(func.coalesce(func.sum(m.CreditEntry.credits), 0)).where(m.CreditEntry.user_id == user_id)
+    ))
+
+
+def redemption_info(db: Session, parcel: m.Parcel) -> dict:
+    used = int(db.scalar(
+        select(func.coalesce(func.sum(-m.CreditEntry.credits), 0))
+        .where(m.CreditEntry.parcel_id == parcel.id, m.CreditEntry.entry_type == "redeem")
+    ))
+    return {"credits_used": used, "discount_eur": credits_to_eur(used)}
 
 def _candidates(db: Session, route_id: int, after: datetime):
     q = (select(m.Departure)
@@ -101,7 +113,7 @@ def parcel_to_dict(p: m.Parcel, with_events: bool = True) -> dict:
 
 # ---------- quote & create ----------
 
-def quote(db: Session, route_id: int, weight_kg: float) -> dict:
+def quote(db: Session, route_id: int, weight_kg: float, sender_id: int | None = None) -> dict:
     route = db.get(m.Route, route_id)
     if not route:
         raise BusinessError("Route not found", 404)
@@ -109,15 +121,22 @@ def quote(db: Session, route_id: int, weight_kg: float) -> dict:
     now = utcnow()
     ranked = rank_departures(_candidates(db, route.id, now), weight_kg, now)
     co2 = co2_avoided(route.distance_km, weight_kg)
-    return {
+    price = price_for(route.distance_km, weight_kg)
+    result = {
         "route": {"id": route.id, "origin": route.origin.city, "destination": route.destination.city,
                   "distance_km": route.distance_km},
-        "price": price_for(route.distance_km, weight_kg),
+        "price": price,
         "estimated_co2_avoided_kg": co2,
         "estimated_credits": credits_for(co2),
         "best_departure": _ranked_dict(ranked[0]) if ranked else None,
         "alternatives": [_ranked_dict(r) for r in ranked[1:3]],
     }
+    if sender_id:
+        balance = credit_balance(db, sender_id)
+        used, discount = max_redeemable(price, balance)
+        result.update({"credits_balance": balance, "redeemable_credits": used,
+                       "discount_eur": discount, "price_after_credits": round(price - discount, 2)})
+    return result
 
 
 def create_parcel(db: Session, data) -> m.Parcel:
@@ -133,17 +152,25 @@ def create_parcel(db: Session, data) -> m.Parcel:
         raise BusinessError(f"Content type not allowed. Allowed: {', '.join(ALLOWED_CONTENT)}", 422)
 
     weight = round(data.weight_kg, 1)
+    full_price = price_for(route.distance_km, weight)
+    used, discount = 0, 0.0
+    if data.use_credits:
+        used, discount = max_redeemable(full_price, credit_balance(db, sender.id))
     parcel = m.Parcel(
         code=_new_code(db), sender_id=sender.id,
         receiver_name=data.receiver_name.strip(), receiver_phone=data.receiver_phone.strip(),
         origin_id=route.origin_id, destination_id=route.destination_id,
         weight_kg=weight, size=size_for(weight), content_type=content,
-        price=price_for(route.distance_km, weight), status="booked",
+        price=round(full_price - discount, 2), status="booked",
         pickup_code=f"{random.randint(0, 9999):04d}", created_at=utcnow(),
     )
     db.add(parcel)
     db.flush()
-    _event(db, parcel, "booked", sender.id)
+    note = f"Used {used} credits (-{discount:.2f} EUR)" if used else None
+    _event(db, parcel, "booked", sender.id, note)
+    if used:
+        db.add(m.CreditEntry(user_id=sender.id, parcel_id=parcel.id, entry_type="redeem",
+                             co2_avoided_kg=0, credits=-used, created_at=utcnow()))
     _notify(db, parcel, sender.phone,
             f"GreenLink: parcel {parcel.code} booked ({route.origin.city} to {route.destination.city}). "
             f"Drop it at the {route.origin.city} station box.")

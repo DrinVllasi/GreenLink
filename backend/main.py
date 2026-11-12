@@ -91,7 +91,7 @@ def list_parcels(sender_id: int | None = None, status: str | None = None, limit:
 @app.post("/parcels/quote")
 def quote_parcel(body: QuoteIn, db: Session = Depends(get_db)):
     """Price + best bus + CO2 estimate, WITHOUT creating anything. Used before the sender confirms."""
-    return services.quote(db, body.route_id, body.weight_kg)
+    return services.quote(db, body.route_id, body.weight_kg, body.sender_id)
 
 
 @app.post("/parcels")
@@ -100,8 +100,8 @@ def create_parcel(body: ParcelIn, db: Session = Depends(get_db)):
     db.commit()
     quote = services.quote(db, body.route_id, body.weight_kg)
     return {"parcel": services.parcel_to_dict(parcel), "best_departure": quote["best_departure"],
-            "estimated_co2_avoided_kg": quote["estimated_co2_avoided_kg"]}
-
+            "estimated_co2_avoided_kg": quote["estimated_co2_avoided_kg"],
+            **services.redemption_info(db, parcel)}
 
 @app.get("/parcels/{code}")
 def get_parcel(code: str, db: Session = Depends(get_db)):
