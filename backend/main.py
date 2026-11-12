@@ -131,6 +131,10 @@ def collect_parcel(code: str, body: CollectIn, db: Session = Depends(get_db)):
 def sender_summary(sender_id: int, db: Session = Depends(get_db)):
     return services.sender_summary(db, sender_id)
 
+@app.get("/senders/{sender_id}/impact")
+def sender_impact(sender_id: int, weeks: int = 6, db: Session = Depends(get_db)):
+    """Weekly CO2 and credits for the dashboard charts."""
+    return services.sender_impact(db, sender_id, weeks)
 
 @app.get("/notifications")
 def list_notifications(limit: int = 20, db: Session = Depends(get_db)):

@@ -52,3 +52,8 @@ tr.clickable:hover { background: #8881; }
 .status-arrived { background: #a855f755; }
 .status-collected { background: #22c55e55; }
 #reader { max-width: 320px; margin: 0.5rem 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+.stat { border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 8px; padding: 10px 12px; }
+.stat-value { font-size: 1.25rem; font-weight: 700; }
+.stat-label { font-size: 0.85rem; opacity: 0.7; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }

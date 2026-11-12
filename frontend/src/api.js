@@ -31,3 +31,5 @@ export const collectParcel = (code, pickupCode) =>
     method: "POST",
     body: JSON.stringify({ pickup_code: pickupCode }),
   });
+export const getSenderSummary = (id) => request(`/senders/${id}/summary`);
+export const getSenderImpact = (id, weeks = 6) => request(`/senders/${id}/impact?weeks=${weeks}`);

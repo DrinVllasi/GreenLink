@@ -1,6 +1,6 @@
 """Business logic for parcels: quote, create, scan (advance status), collect, summaries."""
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -283,3 +283,37 @@ def sender_summary(db: Session, sender_id: int) -> dict:
         "co2_avoided_kg": round(co2, 1),
         "credits_balance": int(balance), "credits_value_eur": credits_to_eur(int(balance)),
     }
+
+def sender_impact(db: Session, sender_id: int, weeks: int = 6) -> dict:
+    """CO2 and credits earned per week (Monday-start, UTC), zero-filled, straight from the ledger."""
+    sender = db.get(m.User, sender_id)
+    if not sender or sender.role != "sender":
+        raise BusinessError("Sender not found", 404)
+    weeks = max(1, min(weeks, 26))
+
+    today = utcnow().date()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+    buckets = {
+        first_monday + timedelta(weeks=i): {"week_start": (first_monday + timedelta(weeks=i)).isoformat(),
+                                            "co2_avoided_kg": 0.0, "credits_earned": 0, "parcels": 0}
+        for i in range(weeks)
+    }
+
+    start = datetime.combine(first_monday, datetime.min.time(), tzinfo=timezone.utc)
+    rows = db.scalars(
+        select(m.CreditEntry).where(m.CreditEntry.user_id == sender_id,
+                                    m.CreditEntry.entry_type == "earn",
+                                    m.CreditEntry.created_at >= start)
+    ).all()
+    for r in rows:
+        day = r.created_at.astimezone(timezone.utc).date()
+        bucket = buckets.get(day - timedelta(days=day.weekday()))
+        if bucket:
+            bucket["co2_avoided_kg"] += r.co2_avoided_kg
+            bucket["credits_earned"] += r.credits
+            bucket["parcels"] += 1
+
+    for b in buckets.values():
+        b["co2_avoided_kg"] = round(b["co2_avoided_kg"], 2)
+    return {"sender": sender.business_name or sender.name, "weeks": list(buckets.values())}

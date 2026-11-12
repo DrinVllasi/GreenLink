@@ -4,6 +4,7 @@ import SenderScreen from "./SenderScreen";
 import ParcelHistory from "./ParcelHistory";
 import ScanScreen from "./ScanScreen";
 import PickupScreen from "./PickupScreen";
+import SenderDashboard from "./SenderDashboard";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString("en-GB", {
@@ -67,6 +68,7 @@ export default function App() {
       {error && <p className="error">Could not reach the API: {error}</p>}
       {currentUser && currentUser.role === "sender" && (
         <>
+          <SenderDashboard userId={currentUser.id} version={historyVersion} />
           <SenderScreen
             user={currentUser}
             routes={routes}
