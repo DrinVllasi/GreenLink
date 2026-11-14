@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -154,6 +155,8 @@ def match_pending(db: Session = Depends(get_db)):
 
 @app.post("/admin/reset-demo")
 def reset_demo():
-    """Wipes and re-seeds everything. Wire this to a 'Reset demo' button in the admin screen."""
+    """Wipes and re-seeds everything. Disabled unless ALLOW_RESET=1 is set (never set it on Render)."""
+    if os.getenv("ALLOW_RESET") != "1":
+        raise HTTPException(403, "Reset is disabled on this server")
     seed_module.reset_schema()
     return seed_module.seed()
