@@ -64,13 +64,21 @@ export default function SenderDashboard({ userId, version }) {
     { label: "Parcels sent", value: summary.parcels_total },
     { label: "In progress", value: summary.parcels_in_progress },
     { label: "Spent", value: `${summary.total_spent_eur.toFixed(2)} EUR` },
-    { label: "CO2 avoided", value: `${summary.co2_avoided_kg} kg` },
-    { label: "Green credits", value: `${summary.credits_balance} (${summary.credits_value_eur.toFixed(2)} EUR)` },
   ];
 
   return (
     <div className="card">
       <h2>{summary.sender}: impact dashboard</h2>
+      <div className="hero">
+        <div className="hero-main">
+          <div className="hero-value">{summary.co2_avoided_kg} kg</div>
+          <div className="hero-label">CO2 avoided with GreenLink</div>
+        </div>
+        <div className="hero-side">
+          <div className="hero-value">{summary.credits_balance}</div>
+          <div className="hero-label">green credits ({summary.credits_value_eur.toFixed(2)} EUR)</div>
+        </div>
+      </div>
       <div className="stats">
         {stats.map((s) => (
           <div className="stat" key={s.label}>

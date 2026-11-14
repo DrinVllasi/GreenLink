@@ -7,13 +7,50 @@ function formatTime(iso) {
   });
 }
 
+const STEPS = ["Booked", "At station", "On bus", "Arrived", "Collected"];
+const STEP_OF = {
+  booked: 0, dropped_off: 1, matched: 1, loaded: 2, in_transit: 2, arrived: 3, collected: 4,
+};
+
+function Tracker({ status }) {
+  const current = STEP_OF[status] ?? 0;
+  return (
+    <ol className="tracker">
+      {STEPS.map((s, i) => (
+        <li key={s} className={(i <= current ? "done " : "") + (i === current ? "current" : "")}>
+          {s}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Details({ details }) {
+  return (
+    <div className="details" onClick={(e) => e.stopPropagation()}>
+      <Tracker status={details.status} />
+      <p>Pickup code for the receiver: <span className="code-big">{details.pickup_code}</span></p>
+      {details.departure && (
+        <p>Bus: {details.departure.operator}, departs {formatTime(details.departure.departs_at)}</p>
+      )}
+      <ul>
+        {(details.events || []).map((ev, i) => (
+          <li key={i}>
+            <strong>{ev.status.replace("_", " ")}</strong> · {formatTime(ev.at)}
+            {ev.note && <span className="sub"> · {ev.note}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function ParcelHistory({ userId, version }) {
   const [parcels, setParcels] = useState([]);
   const [error, setError] = useState(null);
   const [openCode, setOpenCode] = useState(null);
   const [details, setDetails] = useState(null);
 
-  // reload the list when the user changes or a new parcel was booked
   useEffect(() => {
     let cancelled = false;
     getParcels(userId)
@@ -41,6 +78,11 @@ export default function ParcelHistory({ userId, version }) {
       .catch((e) => setError(e.message));
   }
 
+  function renderDetails(code) {
+    if (openCode !== code) return null;
+    return details ? <Details details={details} /> : <p className="sub">Loading...</p>;
+  }
+
   const shown = parcels.slice(0, 15);
 
   return (
@@ -48,54 +90,51 @@ export default function ParcelHistory({ userId, version }) {
       <h2>My parcels ({parcels.length})</h2>
       {error && <p className="error">{error}</p>}
       {parcels.length === 0 && !error && <p className="sub">No parcels yet.</p>}
+
       {parcels.length > 0 && (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Code</th><th>Route</th><th>Weight</th>
-                <th>Receiver</th><th>Status</th><th>Booked</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((p) => (
-                <Fragment key={p.code}>
-                  <tr className="clickable" onClick={() => toggle(p.code)}>
-                    <td>{p.code}</td>
-                    <td>{p.origin} → {p.destination}</td>
-                    <td>{p.weight_kg} kg</td>
-                    <td>{p.receiver_name}</td>
-                    <td><span className={`pill status-${p.status}`}>{p.status.replace("_", " ")}</span></td>
-                    <td>{formatTime(p.created_at)}</td>
-                  </tr>
-                  {openCode === p.code && (
-                    <tr>
-                      <td colSpan="6">
-                        {!details && <p className="sub">Loading...</p>}
-                        {details && (
-                          <div>
-                            <p>Pickup code for the receiver: <strong>{details.pickup_code}</strong></p>
-                            {details.departure && (
-                              <p>Bus: {details.departure.operator}, departs {formatTime(details.departure.departs_at)}</p>
-                            )}
-                            <ul>
-                              {(details.events || []).map((ev, i) => (
-                                <li key={i}>
-                                  <strong>{ev.status.replace("_", " ")}</strong> · {formatTime(ev.at)}
-                                  {ev.note && <span className="sub"> · {ev.note}</span>}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </td>
+        <>
+          <div className="table-wrap only-desktop">
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th><th>Route</th><th>Weight</th>
+                  <th>Receiver</th><th>Status</th><th>Booked</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((p) => (
+                  <Fragment key={p.code}>
+                    <tr className="clickable" onClick={() => toggle(p.code)}>
+                      <td>{p.code}</td>
+                      <td>{p.origin} → {p.destination}</td>
+                      <td>{p.weight_kg} kg</td>
+                      <td>{p.receiver_name}</td>
+                      <td><span className={`pill status-${p.status}`}>{p.status.replace("_", " ")}</span></td>
+                      <td>{formatTime(p.created_at)}</td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {openCode === p.code && (
+                      <tr><td colSpan="6">{renderDetails(p.code)}</td></tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="only-mobile">
+            {shown.map((p) => (
+              <div className="parcel-card" key={p.code} onClick={() => toggle(p.code)}>
+                <div className="pc-top">
+                  <strong>{p.code}</strong>
+                  <span className={`pill status-${p.status}`}>{p.status.replace("_", " ")}</span>
+                </div>
+                <p className="sub">{p.origin} → {p.destination} · {p.weight_kg} kg</p>
+                <p className="sub">To {p.receiver_name} · {formatTime(p.created_at)}</p>
+                {renderDetails(p.code)}
+              </div>
+            ))}
+          </div>
+        </>
       )}
       {parcels.length > 15 && <p className="sub">Showing the latest 15.</p>}
     </div>

@@ -2,13 +2,29 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 async function request(path, options = {}) {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+  } catch {
+    throw new Error("Cannot reach the server. Check your connection and try again.");
+  }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${res.status}: ${text}`);
+    let message = text;
+    try {
+      const data = JSON.parse(text);
+      if (typeof data.detail === "string") {
+        message = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        message = data.detail.map((d) => d.msg).join("; ");
+      }
+    } catch {
+      // not JSON, keep the raw text
+    }
+    throw new Error(message);
   }
   return res.json();
 }
@@ -16,7 +32,6 @@ async function request(path, options = {}) {
 export const getRoutes = () => request("/routes");
 export const getDepartures = (limit = 10) => request(`/departures?limit=${limit}`);
 export const getParcel = (code) => request(`/parcels/${code}`);
-export const resetDemo = () => request("/admin/reset-demo", { method: "POST" });
 export const getUsers = () => request("/users");
 export const getQuote = (body) =>
   request("/parcels/quote", { method: "POST", body: JSON.stringify(body) });
@@ -33,3 +48,10 @@ export const collectParcel = (code, pickupCode) =>
   });
 export const getSenderSummary = (id) => request(`/senders/${id}/summary`);
 export const getSenderImpact = (id, weeks = 6) => request(`/senders/${id}/impact?weeks=${weeks}`);
+export function getNotifications(limit = 20) {
+  return request(`/notifications?limit=${limit}`);
+}
+
+export function getAllParcels(limit = 200) {
+  return request(`/parcels?limit=${limit}`);
+}
