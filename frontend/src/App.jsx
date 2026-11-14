@@ -7,6 +7,25 @@ import PickupScreen from "./PickupScreen";
 import SenderDashboard from "./SenderDashboard";
 import AdminView from "./AdminView";
 
+const WELCOME = {
+  sender: {
+    title: (u) => `Welcome back, ${u.business_name || u.name}`,
+    text: "Book a parcel, follow it on the bus and watch your CO2 savings grow.",
+  },
+  driver: {
+    title: (u) => `Driver view: ${u.name}`,
+    text: "Scan each parcel when you load it and when it arrives. One scan always means the next step.",
+  },
+  agent: {
+    title: (u) => `Station desk: ${u.name}`,
+    text: "Scan arriving parcels, then hand them over with the receiver's pickup code.",
+  },
+  admin: {
+    title: () => "Operations overview",
+    text: "Live parcel counts and the simulated SMS log.",
+  },
+};
+
 export default function App() {
   const [routes, setRoutes] = useState([]);
   const [error, setError] = useState(null);
@@ -74,6 +93,12 @@ export default function App() {
           </p>
         )}
         {error && <p className="error">Could not load data: {error}</p>}
+        {currentUser && WELCOME[currentUser.role] && (
+          <div className="welcome">
+            <h1>{WELCOME[currentUser.role].title(currentUser)}</h1>
+            <p>{WELCOME[currentUser.role].text}</p>
+          </div>
+        )}
 
         {currentUser && currentUser.role === "sender" && (
           <>

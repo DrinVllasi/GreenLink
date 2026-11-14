@@ -38,47 +38,40 @@ export default function AdminView() {
   });
 
   return (
-    <div className="card">
-      <h2>Admin overview</h2>
-      <button onClick={load} disabled={loading}>
-        {loading ? "Loading..." : "Refresh"}
-      </button>
-      {error && <p className="error">Could not load admin data: {error}</p>}
-
-      <h3>Parcels per status ({parcels.length} total)</h3>
-      <div className="stats">
-        {STATUSES.map((s) => (
-          <div className="stat" key={s}>
-            <div className="stat-value">{counts[s]}</div>
-            <div className="stat-label">{s.replace("_", " ")}</div>
-          </div>
-        ))}
+    <>
+      <div className="card">
+        <div className="admin-head">
+          <h2>Parcels per status ({parcels.length} total)</h2>
+          <button className="btn-secondary" onClick={load} disabled={loading}>
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+        {error && <p className="error">Could not load admin data: {error}</p>}
+        <div className="tile-grid">
+          {STATUSES.map((s) => (
+            <div className={`tile status-${s}`} key={s}>
+              <div className="stat-value">{counts[s]}</div>
+              <div className="stat-label">{s.replace("_", " ")}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <h3>Notifications log (simulated SMS)</h3>
-      {notifications.length === 0 && !loading && <p>No notifications yet.</p>}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>To</th>
-              <th>Channel</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>
-            {notifications.map((n) => (
-              <tr key={n.id}>
-                <td>{formatTime(n.at)}</td>
-                <td>{n.to}</td>
-                <td>{n.channel}</td>
-                <td>{n.message}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="card">
+        <h2>Notifications log (simulated SMS)</h2>
+        {notifications.length === 0 && !loading && <p className="sub">No notifications yet.</p>}
+        <ul className="feed">
+          {notifications.map((n) => (
+            <li className="feed-item" key={n.id}>
+              <span className="tag">{n.channel}</span>
+              <div>
+                <p className="feed-msg">{n.message}</p>
+                <p className="feed-meta">To {n.to} · {formatTime(n.at)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
-    </div>
+    </>
   );
 }

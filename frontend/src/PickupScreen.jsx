@@ -55,20 +55,20 @@ export default function PickupScreen() {
       {error && <p className="error">{error}</p>}
 
       {result && (
-        <div className="quote-box">
+        <div className="result-card">
+          <div className="success-icon">✓</div>
           <h3>Parcel handed over</h3>
           {parcel && (
-            <p>
-              <strong>{parcel.code}</strong>{" "}
-              <span className={`pill status-${parcel.status}`}>{parcel.status}</span>
-              <br />{parcel.origin} → {parcel.destination} · Receiver: {parcel.receiver_name}
-            </p>
+            <>
+              <span className={`pill big-pill status-${parcel.status}`}>{parcel.status}</span>
+              <p className="result-code">{parcel.code}</p>
+              <p>{parcel.origin} → {parcel.destination} · Receiver: {parcel.receiver_name}</p>
+            </>
           )}
-          <p>CO2 avoided: <strong>{result.co2_avoided_kg} kg</strong></p>
-          <p>
-            Credits awarded to {parcel ? parcel.sender : "the sender"}:{" "}
-            <strong>{result.credits_awarded}</strong> ({result.credits_value_eur} EUR)
-          </p>
+          <div className="result-stats">
+            <div><strong>{result.co2_avoided_kg} kg</strong><span>CO2 avoided</span></div>
+            <div><strong>{result.credits_awarded}</strong><span>credits to {parcel ? parcel.sender : "the sender"} ({result.credits_value_eur} EUR)</span></div>
+          </div>
           {result.capped && (
             <p className="sub">Daily credit cap reached for this sender, so fewer credits were issued.</p>
           )}

@@ -106,15 +106,14 @@ export default function ScanScreen({ user }) {
       {error && <p className="error">{error}</p>}
 
       {parcel && (
-        <div className="quote-box">
+        <div className="result-card">
+          <div className="success-icon">✓</div>
           <h3>{result.message || "Scanned"}</h3>
-          <p>
-            <strong>{parcel.code}</strong>{" "}
-            <span className={`pill status-${parcel.status}`}>{parcel.status.replace("_", " ")}</span>
-          </p>
+          <span className={`pill big-pill status-${parcel.status}`}>{parcel.status.replace("_", " ")}</span>
+          <p className="result-code">{parcel.code}</p>
           <p>{parcel.origin} → {parcel.destination} · {parcel.weight_kg} kg · To: {parcel.receiver_name}</p>
           {parcel.departure && (
-            <p>Bus: {parcel.departure.operator}, departs {formatTime(parcel.departure.departs_at)}
+            <p className="sub">Bus: {parcel.departure.operator}, departs {formatTime(parcel.departure.departs_at)}
               {" "}({parcel.departure.booked_kg}/{parcel.departure.capacity_kg} kg booked)</p>
           )}
           {result.matched === false && (
