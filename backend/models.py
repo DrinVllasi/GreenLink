@@ -69,7 +69,7 @@ class Departure(Base):
     arrives_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     capacity_kg: Mapped[float] = mapped_column(Float)  # free luggage space declared by the operator
     booked_kg: Mapped[float] = mapped_column(Float, default=0)
-
+    delay_min: Mapped[int | None] = mapped_column(Integer)  # minutes late; only filled for past departures
     route: Mapped[Route] = relationship()
     operator: Mapped[Operator] = relationship()
 

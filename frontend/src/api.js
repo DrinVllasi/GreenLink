@@ -55,3 +55,5 @@ export function getNotifications(limit = 20) {
 export function getAllParcels(limit = 200) {
   return request(`/parcels?limit=${limit}`);
 }
+export const getForecastMetrics = () => request("/forecast/metrics");
+export const getForecastTable = () => request("/forecast/table");

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import forecast
 import models as m
 import seed as seed_module
 import services
@@ -19,6 +20,7 @@ from services import BusinessError
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)  # creates tables if they don't exist yet
+    forecast.train()  # trains the forecasting model; skips quietly if data is missing
     yield
 
 
@@ -75,6 +77,20 @@ def list_users(db: Session = Depends(get_db)):
     return [{"id": u.id, "name": u.name, "role": u.role, "business_name": u.business_name} for u in rows]
 
 
+# ---------- AI forecast ----------
+
+@app.get("/forecast/metrics")
+def forecast_metrics():
+    forecast.ensure_ready()
+    return {"ready": forecast.is_ready(), "metrics": forecast.get_metrics()}
+
+
+@app.get("/forecast/table")
+def forecast_table():
+    forecast.ensure_ready()
+    return forecast.get_table()
+
+
 # ---------- parcels ----------
 
 @app.get("/parcels")
@@ -104,6 +120,7 @@ def create_parcel(body: ParcelIn, db: Session = Depends(get_db)):
             "estimated_co2_avoided_kg": quote["estimated_co2_avoided_kg"],
             **services.redemption_info(db, parcel)}
 
+
 @app.get("/parcels/{code}")
 def get_parcel(code: str, db: Session = Depends(get_db)):
     return services.parcel_to_dict(_get_parcel(db, code))
@@ -132,10 +149,12 @@ def collect_parcel(code: str, body: CollectIn, db: Session = Depends(get_db)):
 def sender_summary(sender_id: int, db: Session = Depends(get_db)):
     return services.sender_summary(db, sender_id)
 
+
 @app.get("/senders/{sender_id}/impact")
 def sender_impact(sender_id: int, weeks: int = 6, db: Session = Depends(get_db)):
     """Weekly CO2 and credits for the dashboard charts."""
     return services.sender_impact(db, sender_id, weeks)
+
 
 @app.get("/notifications")
 def list_notifications(limit: int = 20, db: Session = Depends(get_db)):

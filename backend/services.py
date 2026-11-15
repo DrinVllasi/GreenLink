@@ -5,10 +5,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import forecast
 import models as m
 from co2 import co2_avoided, credits_for, credits_to_eur, max_redeemable
 from matching import rank_departures
-from pricing import price_for
+from pricing import dynamic_price, price_for
 
 MAX_WEIGHT_KG = 10.0
 DAILY_CREDIT_CAP = 300  # anti-abuse: max credits one sender can earn per day (UTC)
@@ -61,6 +62,7 @@ def _route_for(db: Session, origin_id: int, destination_id: int) -> m.Route:
         raise BusinessError("Route not found", 404)
     return route
 
+
 def credit_balance(db: Session, user_id: int) -> int:
     return int(db.scalar(
         select(func.coalesce(func.sum(m.CreditEntry.credits), 0)).where(m.CreditEntry.user_id == user_id)
@@ -73,6 +75,7 @@ def redemption_info(db: Session, parcel: m.Parcel) -> dict:
         .where(m.CreditEntry.parcel_id == parcel.id, m.CreditEntry.entry_type == "redeem")
     ))
     return {"credits_used": used, "discount_eur": credits_to_eur(used)}
+
 
 def _candidates(db: Session, route_id: int, after: datetime):
     q = (select(m.Departure)
@@ -113,16 +116,47 @@ def parcel_to_dict(p: m.Parcel, with_events: bool = True) -> dict:
 
 # ---------- quote & create ----------
 
+def _priced(db: Session, route: m.Route, weight_kg: float):
+    """Ranked buses, base price, AI-adjusted price, and the forecast info shown to the sender."""
+    forecast.ensure_ready()
+    now = utcnow()
+    ranked = rank_departures(_candidates(db, route.id, now), weight_kg, now)
+    base = price_for(route.distance_km, weight_kg)
+    if not ranked:
+        return ranked, base, base, None
+    departs = ranked[0]["departure"].departs_at
+    fill = forecast.predict_fill(route.id, departs)
+    delay = forecast.predict_delay(route.id, departs)
+    price, pct = dynamic_price(base, fill)
+    if fill is None:
+        return ranked, base, price, None
+    day = departs.astimezone(timezone.utc).strftime("%A")
+    if pct > 0:
+        tail = f"so the price includes a +{pct}% demand adjustment"
+    elif pct < 0:
+        tail = f"so the price includes a {pct}% off-peak discount"
+    else:
+        tail = "so no price adjustment applies"
+    ai = {
+        "expected_fill_pct": round(fill * 100),
+        "adjustment_pct": pct,
+        "expected_delay_min": round(delay, 1) if delay is not None else None,
+        "message": f"This bus is usually {round(fill * 100)}% full on {day}s, {tail}",
+        "label": "Forecasting model trained on simulated demo data",
+    }
+    return ranked, base, price, ai
+
+
 def quote(db: Session, route_id: int, weight_kg: float, sender_id: int | None = None) -> dict:
     route = db.get(m.Route, route_id)
     if not route:
         raise BusinessError("Route not found", 404)
     _check_weight(weight_kg)
-    now = utcnow()
-    ranked = rank_departures(_candidates(db, route.id, now), weight_kg, now)
+    ranked, base_price, price, ai = _priced(db, route, weight_kg)
     co2 = co2_avoided(route.distance_km, weight_kg)
-    price = price_for(route.distance_km, weight_kg)
     result = {
+        "base_price": base_price,
+        "forecast": ai,
         "route": {"id": route.id, "origin": route.origin.city, "destination": route.destination.city,
                   "distance_km": route.distance_km},
         "price": price,
@@ -152,7 +186,7 @@ def create_parcel(db: Session, data) -> m.Parcel:
         raise BusinessError(f"Content type not allowed. Allowed: {', '.join(ALLOWED_CONTENT)}", 422)
 
     weight = round(data.weight_kg, 1)
-    full_price = price_for(route.distance_km, weight)
+    full_price = _priced(db, route, weight)[2]  # base price + bounded AI demand adjustment
     used, discount = 0, 0.0
     if data.use_credits:
         used, discount = max_redeemable(full_price, credit_balance(db, sender.id))
@@ -310,6 +344,7 @@ def sender_summary(db: Session, sender_id: int) -> dict:
         "co2_avoided_kg": round(co2, 1),
         "credits_balance": int(balance), "credits_value_eur": credits_to_eur(int(balance)),
     }
+
 
 def sender_impact(db: Session, sender_id: int, weeks: int = 6) -> dict:
     """CO2 and credits earned per week (Monday-start, UTC), zero-filled, straight from the ledger."""

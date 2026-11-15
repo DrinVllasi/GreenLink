@@ -1,4 +1,7 @@
-"""Fills the database with demo data. Run:  python seed.py   (it WIPES and recreates everything)."""
+"""Fills the database with demo data. Run:  python seed.py   (it WIPES and recreates everything).
+
+Past departures get SIMULATED load and delay with patterns (weekday, hour, route), so the
+forecasting model has something to learn. This is demo data, not real scan history."""
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -15,11 +18,41 @@ ROUTE_PAIRS = [
     ("Prishtinë", "Ferizaj", 40.0),
 ]
 DEPARTURE_HOURS = [7, 10, 14, 17]
+DAYS_BACK = 60
+DAYS_AHEAD = 7
 CONTENT_TYPES = ["documents", "spare parts", "handmade goods", "food products", "online order"]
 RECEIVERS = [
     ("Arben K.", "+38344000101"), ("Vjosa M.", "+38344000102"), ("Besnik H.", "+38344000103"),
     ("Drita S.", "+38344000104"), ("Lirim B.", "+38344000105"), ("Era T.", "+38344000106"),
 ]
+
+# --- simulated demand patterns (the "hidden truth" the model will try to learn) ---
+BASE_FILL = 0.45
+HOUR_FACTOR = {7: 1.25, 10: 0.80, 14: 0.85, 17: 1.15}             # morning and evening rush fuller
+WEEKDAY_FACTOR = [1.10, 1.00, 0.95, 1.00, 1.20, 0.90, 0.70]       # Mon..Sun: Friday fullest, Sunday emptiest
+ROUTE_FACTOR = [1.10, 0.90, 0.85]                                 # per city pair: Prizren busiest
+DIRECTION_BOOST = 1.15  # from Prishtine in the morning, back to Prishtine in the afternoon
+
+
+def simulated_fill(pair_index, outbound, weekday, hour):
+    """Fraction of the bus's luggage space that ends up booked (0.05 to 0.98)."""
+    fill = BASE_FILL * HOUR_FACTOR[hour] * WEEKDAY_FACTOR[weekday] * ROUTE_FACTOR[pair_index]
+    if (outbound and hour in (7, 10)) or (not outbound and hour in (14, 17)):
+        fill *= DIRECTION_BOOST
+    fill += random.gauss(0, 0.07)  # noise, so the model is not learning a perfect formula
+    return max(0.05, min(0.98, fill))
+
+
+def simulated_delay(distance_km, weekday, hour):
+    """Minutes late: rush hour, Fridays and longer routes run later; rare big spikes."""
+    delay = random.gauss(3, 2) + distance_km / 82.6 * 4
+    if hour in (7, 17):
+        delay += 6
+    if weekday == 4:
+        delay += 4
+    if random.random() < 1 / 15:
+        delay = random.randint(15, 35)
+    return max(0, min(45, round(delay)))
 
 
 def reset_schema():
@@ -85,22 +118,35 @@ def seed():
         db.add_all(routes)
         db.flush()
 
-        # --- departures: 30 days back, 7 days ahead ---
+        # route id -> (city pair index, True if it leaves Prishtine). Routes were added in pairs.
+        route_meta = {r.id: (i // 2, i % 2 == 0) for i, r in enumerate(routes)}
+
+        # --- departures: past ones get simulated load + delay, future ones start empty ---
         departures = []
-        for day in range(-30, 8):
+        for day in range(-DAYS_BACK, DAYS_AHEAD + 1):
             for route in routes:
+                pair_index, outbound = route_meta[route.id]
                 for i, hour in enumerate(DEPARTURE_HOURS):
                     departs = (now + timedelta(days=day)).replace(hour=hour, minute=0)
                     minutes = int(route.distance_km / 45 * 60) + 10
+                    capacity = random.choice([40, 60, 80])
+                    is_past = departs < now
+                    if is_past:
+                        fill = simulated_fill(pair_index, outbound, departs.weekday(), hour)
+                        booked = round(capacity * fill, 1)
+                        delay = simulated_delay(route.distance_km, departs.weekday(), hour)
+                    else:
+                        booked, delay = 0, None
                     departures.append(m.Departure(
                         route_id=route.id,
                         operator_id=operators[(route.id + i) % 3].id,
                         departs_at=departs,
                         arrives_at=departs + timedelta(minutes=minutes),
-                        capacity_kg=random.choice([40, 60, 80]),
-                        booked_kg=0,
+                        capacity_kg=capacity,
+                        booked_kg=booked,
+                        delay_min=delay,
                     ))
-                # Send departures in batches of 100: one giant INSERT (~900 rows) made Neon drop the connection
+        # Send departures in batches of 100: one giant INSERT made Neon drop the connection
         for i in range(0, len(departures), 100):
             db.add_all(departures[i:i + 100])
             db.flush()
@@ -124,7 +170,8 @@ def seed():
             )
             db.add(parcel)
             db.flush()
-            dep.booked_kg += weight
+            # the simulated load already represents past traffic; just make sure it covers this parcel
+            dep.booked_kg = max(dep.booked_kg, weight)
             add_event(db, parcel, "booked", created, sender)
             add_event(db, parcel, "dropped_off", created + timedelta(minutes=20), users["agent"])
             add_event(db, parcel, "matched", created + timedelta(minutes=21), None, "Auto-matched to departure")

@@ -158,6 +158,18 @@ export default function SenderScreen({ user, routes, onBooked }) {
                 {useCredits && canUse && (
                   <p className="sub">Normal price {quote.price} EUR, reduced with green credits</p>
                 )}
+                {quote.forecast && (
+                  <div className="credit-opt">
+                    <strong>AI recommendation: </strong>
+                    <span>{quote.forecast.message}</span>
+                    <br/>
+                    {quote.forecast.expected_delay_min != null && (
+                      <span className="sub">
+                        Expected delay about {Math.round(quote.forecast.expected_delay_min)} min · {quote.forecast.label}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {quote.credits_balance !== undefined && (
                   <div className="credit-opt">
                     <label>
